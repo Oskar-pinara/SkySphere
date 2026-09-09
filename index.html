@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkySphere Weather Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Readex Pro', 'Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --glass-bg-light: rgba(255, 255, 255, 0.75);
+            --glass-border-light: rgba(255, 255, 255, 0.4);
+            --glass-bg-dark: rgba(15, 23, 42, 0.75);
+            --glass-border-dark: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Readex Pro', 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+
+        /* Ambient Animated Backgrounds */
+        .bg-mesh-dark {
+            background: radial-gradient(circle at 15% 15%, #1e1b4b 0%, transparent 40%),
+                        radial-gradient(circle at 85% 20%, #0c4a6e 0%, transparent 45%),
+                        radial-gradient(circle at 50% 85%, #0f172a 0%, transparent 50%),
+                        #020617;
+        }
+
+        .bg-mesh-light {
+            background: radial-gradient(circle at 15% 15%, #e0f2fe 0%, transparent 45%),
+                        radial-gradient(circle at 85% 20%, #bae6fd 0%, transparent 45%),
+                        radial-gradient(circle at 50% 85%, #f1f5f9 0%, transparent 50%),
+                        #f8fafc;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .dark .glass-panel {
+            background: var(--glass-bg-dark);
+            border: 1px solid var(--glass-border-dark);
+        }
+
+        .light .glass-panel {
+            background: var(--glass-bg-light);
+            border: 1px solid var(--glass-border-light);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Input Fix: Perfect Vertically Centered Text Alignment */
+        .search-input {
+            line-height: 1.6 !important;
+            padding-top: 0.85rem !important;
+            padding-bottom: 0.85rem !important;
+        }
+
+        /* Collapsible Smooth Transition */
+        .collapsible-content {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0, 1, 0, 1), opacity 0.4s ease, margin-top 0.3s ease;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 800px;
+            opacity: 1;
+            transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease 0.1s;
+        }
+
+        /* Pulse Weather Glow Effects */
+        .weather-glow {
+            filter: drop-shadow(0 15px 25px rgba(14, 165, 233, 0.35));
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+    </style>
+</head>
+<body class="dark bg-mesh-dark text-slate-100 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+    <header class="w-full px-6 py-5 max-w-7xl mx-auto flex items-center justify-between gap-4 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-sky-400 flex items-center justify-center shadow-lg shadow-brand-500/30 text-white text-2xl">
+                <i class="fa-solid fa-cloud-sun-rain"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-sky-400 via-teal-300 to-brand-500 bg-clip-text text-transparent">SkySphere</h1>
+                <p class="text-xs text-slate-400 font-medium" id="headerTagline">لوحة معلومات الطقس العالمية الاحترافية</p>
+            </div>
+        </div>
+
+        <!-- Top Right Controls (Language & Theme Toggle) -->
+        <div class="flex items-center gap-3">
+            <!-- Custom Language Dropdown -->
+            <div class="relative">
+                <button id="langDropdownBtn" onclick="toggleLangDropdown()" class="glass-panel px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium hover:border-brand-500/50 transition-all">
+                    <i class="fa-solid fa-globe text-brand-400"></i>
+                    <span id="currentLangLabel">العربية</span>
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-1"></i>
+                </button>
+                <div id="langDropdownMenu" class="hidden absolute left-0 rtl:right-0 mt-2 w-40 glass-panel rounded-xl overflow-hidden shadow-2xl z-50 border border-slate-700/50">
+                    <button onclick="selectLanguage('ar', 'العربية')" class="w-full px-4 py-3 text-right rtl:text-right ltr:text-left hover:bg-brand-500/10 hover:text-brand-400 text-sm font-medium flex items-center justify-between">
+                        <span>العربية</span>
+                        <span class="text-xs text-slate-500">AR</span>
+                    </button>
+                    <button onclick="selectLanguage('en', 'English')" class="w-full px-4 py-3 text-right rtl:text-right ltr:text-left hover:bg-brand-500/10 hover:text-brand-400 text-sm font-medium flex items-center justify-between border-t border-slate-700/30">
+                        <span>English</span>
+                        <span class="text-xs text-slate-500">EN</span>
+                    </button>
+                    <button onclick="selectLanguage('fr', 'Français')" class="w-full px-4 py-3 text-right rtl:text-right ltr:text-left hover:bg-brand-500/10 hover:text-brand-400 text-sm font-medium flex items-center justify-between border-t border-slate-700/30">
+                        <span>Français</span>
+                        <span class="text-xs text-slate-500">FR</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Theme Toggle Button -->
+            <button onclick="toggleTheme()" id="themeBtn" class="glass-panel w-11 h-11 rounded-xl flex items-center justify-center text-amber-400 hover:text-amber-300 hover:scale-105 transition-all">
+                <i class="fa-solid fa-sun text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-7xl mx-auto px-4 sm:px-6 my-auto py-6 flex-1 flex flex-col justify-center">
+        
+        <!-- Search Bar Section with Enhanced Alignment Fixes -->
+        <div class="max-w-3xl mx-auto w-full mb-8">
+            <div class="glass-panel p-2 rounded-2xl flex items-center gap-2 shadow-2xl relative group focus-within:border-brand-500 transition-all duration-300">
+                <div class="flex-1 relative flex items-center">
+                    <i class="fa-solid fa-magnifying-glass absolute right-4 rtl:right-4 ltr:left-4 text-slate-400 group-focus-within:text-brand-400 text-lg pointer-events-none"></i>
+                    <input type="text" id="cityInput" 
+                           placeholder="ابحث عن أي مدينة، قرية، أو دولة في العالم..." 
+                           class="search-input w-full bg-transparent border-0 text-base sm:text-lg focus:outline-none focus:ring-0 text-slate-100 dark:text-slate-100 light:text-slate-800 placeholder-slate-400 font-normal pr-12 rtl:pr-12 rtl:pl-4 ltr:pl-12 ltr:pr-4">
+                </div>
+                
+                <button onclick="getWeatherByCity()" class="bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white font-medium px-6 py-3.5 rounded-xl shadow-lg shadow-brand-500/25 transition-all duration-300 active:scale-95 flex items-center gap-2 shrink-0">
+                    <span class="hidden sm:inline" id="searchBtnText">بحث</span>
+                    <i class="fa-solid fa-arrow-left rtl:rotate-0 ltr:rotate-180"></i>
+                </button>
+                
+                <button onclick="getWeatherByLocation()" title="موقعي الحالي" class="glass-panel p-3.5 rounded-xl text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 transition-all active:scale-95 shrink-0 flex items-center justify-center">
+                    <i class="fa-solid fa-location-crosshairs text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Error Alert Banner -->
+            <div id="errorMsg" class="hidden mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium flex items-center gap-3 animate-fade-in">
+                <i class="fa-solid fa-circle-exclamation text-lg"></i>
+                <span id="errorText">لم نتمكن من العثور على المدينة. يرجى التحقق من الاسم والمحاولة مجدداً.</span>
+            </div>
+        </div>
+
+        <div id="weatherBody" class="hidden space-y-6 animate-fade-in">
+            
+            <!-- Top Dashboard Hero Banner (Main Weather Status) -->
+            <div class="glass-panel rounded-3xl p-6 sm:p-10 relative overflow-hidden">
+                <!-- Background Accent Glow -->
+                <div class="absolute -right-20 -top-20 w-80 h-80 bg-brand-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <!-- Left Hero Text Info -->
+                    <div class="text-center md:text-right rtl:md:text-right ltr:md:text-left space-y-3">
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
+                            <i class="fa-solid fa-map-pin"></i>
+                            <span id="cityName">القاهرة, مصر</span>
+                        </div>
+                        <div class="flex items-baseline justify-center md:justify-start gap-2">
+                            <span class="text-6xl sm:text-8xl font-black tracking-tight" id="temp">28°</span>
+                            <span class="text-3xl font-light text-slate-400">C</span>
+                        </div>
+                        <p class="text-xl sm:text-2xl font-medium text-slate-300 capitalize" id="description">صافي غالباً</p>
+                        <p class="text-xs text-slate-400 flex items-center justify-center md:justify-start gap-2">
+                            <i class="fa-regular fa-clock"></i>
+                            <span id="lastUpdatedLabel">آخر تحديث للتوقيت المحلي:</span>
+                            <span id="localTime" class="font-semibold text-slate-200">12:30 م</span>
+                        </p>
+                    </div>
+
+                    <!-- Right Hero Weather Icon Showcase -->
+                    <div class="flex flex-col items-center justify-center">
+                        <img id="wIcon" src="https://openweathermap.org/img/wn/01d@4x.png" alt="Weather Icon" class="w-36 h-36 sm:w-48 sm:h-48 weather-glow object-contain">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-slate-700/40">
+                    <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-temperature-half"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400" id="lblFeelsLike">الملموسة</p>
+                            <p class="text-base font-bold text-slate-100" id="feelsLike">30°C</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-droplet"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400" id="lblHumidity">الرطوبة</p>
+                            <p class="text-base font-bold text-slate-100" id="humidity">45%</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-wind"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400" id="lblWind">سرعة الرياح</p>
+                            <p class="text-base font-bold text-slate-100" id="wind">4.5 م/ث</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400" id="lblVisibility">مدى الرؤية</p>
+                            <p class="text-base font-bold text-slate-100" id="visibility">10 كم</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button onclick="toggleAdvancedDetails()" id="toggleDetailsBtn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-brand-400 text-sm font-semibold border border-slate-700/60 shadow-lg transition-all duration-300">
+                        <span id="toggleBtnText">عرض المزيد من التفاصيل القياسية</span>
+                        <i id="toggleBtnIcon" class="fa-solid fa-chevron-down transition-transform duration-300"></i>
+                    </button>
+                </div>
+
+                <!-- Collapsible Advanced Details Panel -->
+                <div id="advancedDetailsPanel" class="collapsible-content">
+                    <div class="pt-6 border-t border-slate-700/40 mt-6">
+                        <h3 class="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider text-center md:text-right" id="advancedTitle">التفاصيل الجوية المتقدمة والفيزيائية</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-gauge-high"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-400" id="lblPressure">الضغط الجوي</p>
+                                    <p class="text-base font-bold text-slate-100" id="pressure">1013 hPa</p>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-sun"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-400" id="lblSunrise">شروق الشمس</p>
+                                    <p class="text-base font-bold text-slate-100" id="sunrise">06:00 ص</p>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-moon"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-400" id="lblSunset">غروب الشمس</p>
+                                    <p class="text-base font-bold text-slate-100" id="sunset">06:30 م</p>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel p-4 rounded-2xl flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-cloud"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-400" id="lblClouds">تغطية السحب</p>
+                                    <p class="text-base font-bold text-slate-100" id="clouds">20%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-7xl mx-auto px-6 py-4 text-center text-xs text-slate-500 border-t border-slate-800/40">
+        <p>© 2026 SkySphere Dashboard. مدعوم بواسطة OpenWeatherMap API الحقيقي.</p>
+    </footer>
+
+    <script>
+        const apiKey = "066faa539747de1b6e04e76a187d02f6";
+        let currentLang = "ar";
+        let isDetailsExpanded = false;
+
+        // Translation Dictionary
+        const i18n = {
+            ar: {
+                tagline: "لوحة معلومات الطقس العالمية الاحترافية",
+                placeholder: "ابحث عن أي مدينة، قرية، أو دولة في العالم...",
+                searchBtn: "بحث",
+                error: "تعذر العثور على المكان، يرجى كتابة الاسم بشكل صحيح أو استخدام البحث الإنجليزي.",
+                feelsLike: "الملموسة",
+                humidity: "الرطوبة",
+                wind: "سرعة الرياح",
+                visibility: "مدى الرؤية",
+                pressure: "الضغط الجوي",
+                sunrise: "شروق الشمس",
+                sunset: "غروب الشمس",
+                clouds: "تغطية السحب",
+                lastUpdated: "التوقيت المحلي للمدينة:",
+                moreDetails: "عرض المزيد من التفاصيل المتقدمة",
+                lessDetails: "إخفاء التفاصيل المتقدمة",
+                advancedTitle: "التفاصيل الجوية المتقدمة والفيزيائية",
+                dir: "rtl"
+            },
+            en: {
+                tagline: "Professional Global Weather Dashboard",
+                placeholder: "Search any city, village, or country worldwide...",
+                searchBtn: "Search",
+                error: "Location not found. Please check spelling or search in English.",
+                feelsLike: "Feels Like",
+                humidity: "Humidity",
+                wind: "Wind Speed",
+                visibility: "Visibility",
+                pressure: "Pressure",
+                sunrise: "Sunrise",
+                sunset: "Sunset",
+                clouds: "Cloudiness",
+                lastUpdated: "Local Time:",
+                moreDetails: "Show More Advanced Details",
+                lessDetails: "Hide Advanced Details",
+                advancedTitle: "Advanced Physical Weather Metrics",
+                dir: "ltr"
+            },
+            fr: {
+                tagline: "Tableau de bord météo mondial professionnel",
+                placeholder: "Rechercher une ville, un village ou un pays...",
+                searchBtn: "Chercher",
+                error: "Lieu non trouvé. Veuillez vérifier l'orthographe.",
+                feelsLike: "Ressentie",
+                humidity: "Humidité",
+                wind: "Vitesse du vent",
+                visibility: "Visibilité",
+                pressure: "Pression",
+                sunrise: "Lever du soleil",
+                sunset: "Coucher du soleil",
+                clouds: "Couverture nuageuse",
+                lastUpdated: "Heure locale:",
+                moreDetails: "Afficher plus de détails",
+                lessDetails: "Masquer les détails",
+                advancedTitle: "Métriques Météo Avancées",
+                dir: "ltr"
+            }
+        };
+
+        // Theme Toggle Logic
+        function toggleTheme() {
+            const body = document.body;
+            const themeBtn = document.getElementById("themeBtn");
+            if (body.classList.contains("dark")) {
+                body.classList.remove("dark", "bg-mesh-dark");
+                body.classList.add("light", "bg-mesh-light");
+                themeBtn.innerHTML = '<i class="fa-solid fa-moon text-lg text-slate-700"></i>';
+            } else {
+                body.classList.remove("light", "bg-mesh-light");
+                body.classList.add("dark", "bg-mesh-dark");
+                themeBtn.innerHTML = '<i class="fa-solid fa-sun text-lg text-amber-400"></i>';
+            }
+        }
+
+        // Dropdown Menu Toggles
+        function toggleLangDropdown() {
+            const menu = document.getElementById("langDropdownMenu");
+            menu.classList.toggle("hidden");
+        }
+
+        window.onclick = function(e) {
+            if (!e.target.closest('#langDropdownBtn') && !e.target.closest('#langDropdownMenu')) {
+                document.getElementById("langDropdownMenu").classList.add("hidden");
+            }
+        }
+
+        // Language Selector Switcher
+        function selectLanguage(lang, label) {
+            currentLang = lang;
+            document.getElementById("currentLangLabel").innerText = label;
+            document.getElementById("langDropdownMenu").classList.add("hidden");
+
+            const t = i18n[lang];
+            document.documentElement.dir = t.dir;
+            document.getElementById("headerTagline").innerText = t.tagline;
+            document.getElementById("cityInput").placeholder = t.placeholder;
+            document.getElementById("searchBtnText").innerText = t.searchBtn;
+            document.getElementById("errorText").innerText = t.error;
+
+            document.getElementById("lblFeelsLike").innerText = t.feelsLike;
+            document.getElementById("lblHumidity").innerText = t.humidity;
+            document.getElementById("lblWind").innerText = t.wind;
+            document.getElementById("lblVisibility").innerText = t.visibility;
+            document.getElementById("lblPressure").innerText = t.pressure;
+            document.getElementById("lblSunrise").innerText = t.sunrise;
+            document.getElementById("lblSunset").innerText = t.sunset;
+            document.getElementById("lblClouds").innerText = t.clouds;
+            document.getElementById("lastUpdatedLabel").innerText = t.lastUpdated;
+            document.getElementById("advancedTitle").innerText = t.advancedTitle;
+
+            // Refresh Toggle Button Text
+            const toggleText = document.getElementById("toggleBtnText");
+            toggleText.innerText = isDetailsExpanded ? t.lessDetails : t.moreDetails;
+
+            // Re-fetch weather if input has value
+            const city = document.getElementById("cityInput").value.trim();
+            if (city) getWeatherByCity();
+        }
+
+        // Advanced Details Collapse / Expand Toggle
+        function toggleAdvancedDetails() {
+            const panel = document.getElementById("advancedDetailsPanel");
+            const btnText = document.getElementById("toggleBtnText");
+            const btnIcon = document.getElementById("toggleBtnIcon");
+            const t = i18n[currentLang];
+
+            isDetailsExpanded = !isDetailsExpanded;
+
+            if (isDetailsExpanded) {
+                panel.classList.add("expanded");
+                btnText.innerText = t.lessDetails;
+                btnIcon.style.transform = "rotate(180deg)";
+            } else {
+                panel.classList.remove("expanded");
+                btnText.innerText = t.moreDetails;
+                btnIcon.style.transform = "rotate(0deg)";
+            }
+        }
+
+        // Time Utility Functions
+        function formatLocalTime(timezoneOffset) {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const cityTime = new Date(utc + (1000 * timezoneOffset));
+            return cityTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatSunTime(unixTimestamp, timezoneOffset) {
+            const now = new Date();
+            const localOffset = now.getTimezoneOffset() * 60;
+            const date = new Date((unixTimestamp + timezoneOffset + localOffset) * 1000);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Fetch Weather Functions
+        async function getWeatherByCity() {
+            const city = document.getElementById("cityInput").value.trim();
+            if (!city) return;
+            const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=${currentLang}`;
+            fetchWeatherData(url);
+        }
+
+        function getWeatherByLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=${currentLang}`;
+                        fetchWeatherData(url);
+                    },
+                    () => showError()
+                );
+            } else {
+                showError();
+            }
+        }
+
+        async function fetchWeatherData(url) {
+            const errorMsg = document.getElementById("errorMsg");
+            const weatherBody = document.getElementById("weatherBody");
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error();
+
+                const data = await response.json();
+
+                // Fill Top Hero Data
+                document.getElementById("cityName").innerText = `${data.name}, ${data.sys.country}`;
+                document.getElementById("temp").innerText = `${Math.round(data.main.temp)}°`;
+                document.getElementById("description").innerText = data.weather[0].description;
+                document.getElementById("localTime").innerText = formatLocalTime(data.timezone);
+                document.getElementById("wIcon").src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`;
+
+                // Fill Overview Metrics
+                document.getElementById("feelsLike").innerText = `${Math.round(data.main.feels_like)}°C`;
+                document.getElementById("humidity").innerText = `${data.main.humidity}%`;
+                document.getElementById("wind").innerText = `${data.wind.speed} ${currentLang === 'ar' ? 'م/ث' : 'm/s'}`;
+                document.getElementById("visibility").innerText = `${(data.visibility / 1000).toFixed(1)} ${currentLang === 'ar' ? 'كم' : 'km'}`;
+
+                // Fill Advanced Metrics
+                document.getElementById("pressure").innerText = `${data.main.pressure} hPa`;
+                document.getElementById("sunrise").innerText = formatSunTime(data.sys.sunrise, data.timezone);
+                document.getElementById("sunset").innerText = formatSunTime(data.sys.sunset, data.timezone);
+                document.getElementById("clouds").innerText = `${data.clouds.all}%`;
+
+                errorMsg.classList.add("hidden");
+                weatherBody.classList.remove("hidden");
+            } catch (err) {
+                showError();
+            }
+        }
+
+        function showError() {
+            document.getElementById("weatherBody").classList.add("hidden");
+            document.getElementById("errorMsg").classList.remove("hidden");
+        }
+
+        // Enter Key Listener For Instant Search
+        document.getElementById("cityInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                getWeatherByCity();
+            }
+        });
+
+        // Load Default City On Load
+        window.onload = function() {
+            document.getElementById("cityInput").value = "القاهرة";
+            getWeatherByCity();
+        };
+    </script>
+</body>
+</html>
